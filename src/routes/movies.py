@@ -196,24 +196,25 @@ async def update_movie(
     for field, value in update_data.items():
         setattr(movie, field, value)
 
-        await db.commit()
-        await db.refresh(movie)
+    await db.commit()
+    await db.refresh(movie)
 
-        return {"detail": "Movie updated successfully."}
+    return {"detail": "Movie updated successfully."}
 
-    @router.delete("/{movie_id}/", status_code=status.HTTP_204_NO_CONTENT)
-    async def delete_movie(
-            movie_id: int = Path(ge=1),
-            db: AsyncSession = Depends(get_db),
-    ):
-        result = await db.execute(select(MovieModel).where(MovieModel.id == movie_id))
-        movie = result.scalar_one_or_none()
 
-        if not movie:
-            raise HTTPException(
-                status_code=404, detail="Movie with the given ID was not found."
-            )
+@router.delete("/{movie_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_movie(
+        movie_id: int = Path(ge=1),
+        db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(MovieModel).where(MovieModel.id == movie_id))
+    movie = result.scalar_one_or_none()
 
-        await db.delete(movie)
-        await db.commit()
-        return None
+    if not movie:
+        raise HTTPException(
+            status_code=404, detail="Movie with the given ID was not found."
+        )
+
+    await db.delete(movie)
+    await db.commit()
+    return None
