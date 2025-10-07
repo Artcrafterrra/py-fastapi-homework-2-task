@@ -181,7 +181,6 @@ async def create_movie(
         )
     )
     movie = result.scalar_one()
-    
     return movie
 
 
