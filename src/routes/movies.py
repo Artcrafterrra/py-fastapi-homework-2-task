@@ -151,9 +151,7 @@ async def create_movie(
         await get_or_create(LanguageModel, name=language)
         for language in movie_data.languages
     ]
-    
     status_value = MovieStatusEnum(movie_data.status.value)
-    
     movie = MovieModel(
         name=movie_data.name,
         date=movie_data.date,
@@ -171,8 +169,7 @@ async def create_movie(
 
     db.add(movie)
     await db.commit()
-    
-    # Re-query with relationships loaded instead of using refresh with attribute_names
+
     result = await db.execute(
         select(MovieModel)
         .where(MovieModel.id == movie.id)
