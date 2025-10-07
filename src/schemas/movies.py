@@ -1,8 +1,16 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-
 from enum import Enum
+
+
+# Shared validator function for date validation
+def validate_movie_date(v: Optional[date]) -> Optional[date]:
+    if v is not None:
+        max_date = date.today() + timedelta(days=365)
+        if v > max_date:
+            raise ValueError('Date cannot be more than one year in the future')
+    return v
 
 
 class CountrySchema(BaseModel):
@@ -95,6 +103,8 @@ class MovieCreateSchema(BaseModel):
             raise ValueError('Country must be a valid ISO alpha-2 or alpha-3 code')
         return v.upper()
 
+    _validate_date = field_validator('date')(validate_movie_date)
+
 
 class MovieUpdateSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -106,3 +116,5 @@ class MovieUpdateSchema(BaseModel):
     status: Optional[MovieStatus] = None
     budget: Optional[float] = Field(None, ge=0)
     revenue: Optional[float] = Field(None, ge=0)
+
+    _validate_date = field_validator('date')(validate_movie_date)

@@ -104,12 +104,10 @@ async def get_movie_details(
     return movie
 
 
-@router.post(
-    "/", response_model=MovieDetailSchema, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=MovieDetailSchema, status_code=status.HTTP_201_CREATED)
 async def create_movie(
-    movie_data: MovieCreateSchema,
-    db: AsyncSession = Depends(get_db),
+        movie_data: MovieCreateSchema,
+        db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(
         select(MovieModel).where(
@@ -124,9 +122,6 @@ async def create_movie(
             detail=f"A movie with the name '{movie_data.name}' and release date '{movie_data.date}' already exists.",
         )
 
-    if movie_data.date > date.today() + timedelta(days=365):
-        raise HTTPException(status_code=400, detail="Invalid input data.")
-
     async def get_or_create(model, **kwargs):
         result = await db.execute(select(model).filter_by(**kwargs))
         instance = result.scalar_one_or_none()
@@ -137,29 +132,36 @@ async def create_movie(
         await db.flush()
         return instance
 
-    country = await get_or_create(
-        CountryModel, code=movie_data.country, name=None
+    country_result = await db.execute(
+        select(CountryModel).where(CountryModel.code == movie_data.country)
     )
+    country = country_result.scalar_one_or_none()
+    if not country:
+        country = CountryModel(code=movie_data.country, name=None)
+        db.add(country)
+        await db.flush()
+
     genres = [
-        await get_or_create(GenreModel, name=genre)
-        for genre in movie_data.genres
+        await get_or_create(GenreModel, name=genre) for genre in movie_data.genres
     ]
     actors = [
-        await get_or_create(ActorModel, name=actor_name)
-        for actor_name in movie_data.actors
+        await get_or_create(ActorModel, name=actor_name) for actor_name in movie_data.actors
     ]
     languages = [
         await get_or_create(LanguageModel, name=language)
         for language in movie_data.languages
     ]
+    
+    status_value = MovieStatusEnum(movie_data.status.value)
+    
     movie = MovieModel(
         name=movie_data.name,
         date=movie_data.date,
         score=movie_data.score,
         overview=movie_data.overview,
-        status=movie_data.status,
-        budget=float(movie_data.budget),
-        revenue=float(movie_data.revenue),
+        status=status_value,
+        budget=movie_data.budget,
+        revenue=movie_data.revenue,
         country_id=country.id,
     )
 
@@ -169,9 +171,20 @@ async def create_movie(
 
     db.add(movie)
     await db.commit()
-    await db.refresh(
-        movie, attribute_names=["country", "genres", "actors", "languages"]
+    
+    # Re-query with relationships loaded instead of using refresh with attribute_names
+    result = await db.execute(
+        select(MovieModel)
+        .where(MovieModel.id == movie.id)
+        .options(
+            selectinload(MovieModel.country),
+            selectinload(MovieModel.genres),
+            selectinload(MovieModel.actors),
+            selectinload(MovieModel.languages),
+        )
     )
+    movie = result.scalar_one()
+    
     return movie
 
 
