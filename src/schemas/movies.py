@@ -1,7 +1,7 @@
 from datetime import date
-from decimal import Decimal
-from typing import Annotated, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
 from enum import Enum
 
 
@@ -69,33 +69,40 @@ class MovieDetailSchema(BaseModel):
     languages: list[LanguageSchema]
 
 
-class MovieCreateSchema(BaseModel):
-    name: str = Field(max_length=255)
-    date: date
-    score: float = Field(ge=0, le=100)
-    overview: str
-    status: str
-    budget: Annotated[Decimal, Field(ge=0)]
-    revenue: Annotated[Decimal, Field(ge=0)]
-    country: str
-    genres: list[str]
-    actors: list[str]
-    languages: list[str]
-
-
 class MovieStatus(str, Enum):
     released = "Released"
     post_production = "Post Production"
     in_production = "In Production"
 
 
+class MovieCreateSchema(BaseModel):
+    name: str = Field(max_length=255)
+    date: date
+    score: float = Field(ge=0, le=100)
+    overview: str
+    status: MovieStatus
+    budget: float = Field(ge=0)
+    revenue: float = Field(ge=0)
+    country: str = Field(min_length=2, max_length=3)
+    genres: list[str]
+    actors: list[str]
+    languages: list[str]
+
+    @field_validator('country')
+    @classmethod
+    def validate_country_code(cls, v: str) -> str:
+        if not (2 <= len(v) <= 3) or not v.isalpha():
+            raise ValueError('Country must be a valid ISO alpha-2 or alpha-3 code')
+        return v.upper()
+
+
 class MovieUpdateSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=255)
     date: Optional[date] = None
-    score: Optional[float] = None
+    score: Optional[float] = Field(None, ge=0, le=100)
     overview: Optional[str] = None
     status: Optional[MovieStatus] = None
-    budget: Optional[float] = None
-    revenue: Optional[float] = None
+    budget: Optional[float] = Field(None, ge=0)
+    revenue: Optional[float] = Field(None, ge=0)
